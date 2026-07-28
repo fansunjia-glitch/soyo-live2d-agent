@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import {
   Box,
+  Camera,
   CheckCircle2,
   Headphones,
   History,
@@ -22,6 +23,7 @@ import {
 } from "lucide-react";
 import { apiUrl, wsUrl } from "./api";
 import { startVoiceCapture, type VoiceCapture } from "./audio";
+import { preparePhoto, type PreparedPhoto } from "./image";
 import { Live2DStage } from "./live2d/Live2DStage";
 import type { AgentAction, AgentEmotion, AgentReply, ChatMessage, RuntimeConfig } from "./types";
 
@@ -40,6 +42,7 @@ type ChatSession = {
   createdAt: number;
   updatedAt: number;
   messages: ChatMessage[];
+  memorySummary: string;
 };
 
 type AgentSettings = {
@@ -61,7 +64,7 @@ type SyncedReply = {
 const settingsKey = "soyo.agent.settings.v3";
 
 const initialConfig: RuntimeConfig = {
-  llmModel: "qwen-plus-latest",
+  llmModel: "qwen3.6-flash",
   asrModel: "paraformer-realtime-v2",
   ttsModel: "cosyvoice-v3.5-flash",
   ttsVoice: "longxiaochun",
@@ -94,6 +97,7 @@ export default function App() {
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState("");
   const [draft, setDraft] = useState("");
+  const [pendingPhoto, setPendingPhoto] = useState<PreparedPhoto | null>(null);
   const [transcript, setTranscript] = useState("");
   const [phase, setPhase] = useState<Phase>("idle");
   const [status, setStatus] = useState("未连接");
@@ -218,7 +222,8 @@ export default function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: session.title,
-          messages: session.messages
+          messages: session.messages,
+          memorySummary: session.memorySummary
         })
       });
       if (!response.ok) {
@@ -246,6 +251,7 @@ export default function App() {
         setSessions((current) => [session, ...current]);
         setActiveSessionId(session.id);
         setSyncedReply(null);
+        setPendingPhoto(null);
         setDraft("");
         setTranscript("");
         setEmotion("neutral");
@@ -298,14 +304,17 @@ export default function App() {
     return replyEmotion ? undefined : config.ttsVoices.soft;
   }, [config.ttsVoice, config.ttsVoices.natural, config.ttsVoices.soft, settings.customVoice, settings.voiceMode]);
 
-  const sendToAgent = useCallback(async (text: string) => {
-    const content = text.trim();
+  const sendToAgent = useCallback(async (text: string, imageDataUrl?: string) => {
+    const content = text.trim() || (imageDataUrl ? "请看看我刚拍到的画面。" : "");
     const session = activeSession;
     if (!content || !session) {
       return;
     }
 
-    const userMessage: ChatMessage = { role: "user", content };
+    const userMessage: ChatMessage = {
+      role: "user",
+      content: imageDataUrl ? `[照片] ${content}` : content
+    };
     const nextMessages: ChatMessage[] = [...session.messages, userMessage];
     updateActiveSession((current) => ({
       ...current,
@@ -320,6 +329,7 @@ export default function App() {
     setConsoleOpen(false);
     let pendingAssistantMessage: ChatMessage | null = null;
     let pendingAssistantMessages: ChatMessage[] | null = null;
+    let pendingMemorySummary = session.memorySummary;
     let assistantCommitted = false;
 
     const commitAssistantMessage = () => {
@@ -332,7 +342,8 @@ export default function App() {
       updateActiveSession((current) => ({
         ...current,
         updatedAt: Date.now(),
-        messages: [...assistantMessages, assistantMessage]
+        messages: [...assistantMessages, assistantMessage],
+        memorySummary: pendingMemorySummary
       }));
     };
 
@@ -342,6 +353,8 @@ export default function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           messages: nextMessages,
+          memorySummary: session.memorySummary,
+          imageDataUrl,
           model: settings.llmModel,
           temperature: settings.temperature
         })
@@ -352,8 +365,12 @@ export default function App() {
       }
 
       const agentReply = await chatResponse.json() as AgentReply;
+      if (imageDataUrl) {
+        setPendingPhoto(null);
+      }
       pendingAssistantMessage = { role: "assistant", content: agentReply.reply };
-      pendingAssistantMessages = nextMessages;
+      pendingAssistantMessages = agentReply.messagesCompacted ? [] : nextMessages;
+      pendingMemorySummary = agentReply.memorySummary;
       setEmotion(agentReply.emotion);
       setAction(agentReply.action);
       setStatus("生成语音");
@@ -440,6 +457,20 @@ export default function App() {
       setStatus(pendingAssistantMessage ? `${message} · 已显示文字回复` : message);
     }
   }, [activeSession, resolveVoice, settings.llmModel, settings.temperature, settings.ttsModel, updateActiveSession]);
+
+  const selectPhoto = useCallback(async (file: File) => {
+    setStatus("处理照片");
+    try {
+      const photo = await preparePhoto(file);
+      setPendingPhoto(photo);
+      setChatVisible(true);
+      setPhase("idle");
+      setStatus("照片已就绪");
+    } catch (error) {
+      setPhase("error");
+      setStatus(error instanceof Error ? error.message : "照片处理失败");
+    }
+  }, []);
 
   const testVoice = useCallback(async () => {
     setVoiceTestStatus("生成测试音频");
@@ -596,8 +627,14 @@ export default function App() {
         transcript={transcript}
         sessionTitle={activeSession?.title ?? "实时语音对话"}
         conversationVisible={chatVisible}
+        photo={pendingPhoto}
         onDraftChange={setDraft}
-        onSubmit={() => void sendToAgent(draft)}
+        onPhotoSelect={(file) => void selectPhoto(file)}
+        onPhotoRemove={() => {
+          setPendingPhoto(null);
+          setStatus(config.ready ? "云端模型已就绪" : "等待配置密钥");
+        }}
+        onSubmit={() => void sendToAgent(draft, pendingPhoto?.dataUrl)}
         onListen={() => void startListening()}
         onRevealConversation={() => {
           setChatVisible(true);
@@ -618,6 +655,7 @@ export default function App() {
           createNewSession={createNewSession}
           selectSession={(sessionId) => {
             setActiveSessionId(sessionId);
+            setPendingPhoto(null);
             setConsoleOpen(false);
           }}
           deleteSession={deleteSession}
@@ -645,7 +683,10 @@ function StageChatDock({
   transcript,
   sessionTitle,
   conversationVisible,
+  photo,
   onDraftChange,
+  onPhotoSelect,
+  onPhotoRemove,
   onSubmit,
   onListen,
   onRevealConversation
@@ -656,12 +697,16 @@ function StageChatDock({
   transcript: string;
   sessionTitle: string;
   conversationVisible: boolean;
+  photo: PreparedPhoto | null;
   onDraftChange: (value: string) => void;
+  onPhotoSelect: (file: File) => void;
+  onPhotoRemove: () => void;
   onSubmit: () => void;
   onListen: () => void;
   onRevealConversation: () => void;
 }) {
   const busy = phase === "thinking" || phase === "speaking";
+  const photoInputRef = useRef<HTMLInputElement | null>(null);
 
   return (
     <section
@@ -708,14 +753,45 @@ function StageChatDock({
         >
           {phase === "listening" ? <MicOff size={22} /> : <Mic size={22} />}
         </button>
-        <textarea
-          value={draft}
-          onChange={(event) => onDraftChange(event.target.value)}
-          placeholder="和 Soyo 说点什么..."
+        <button
+          className="cameraButton"
+          type="button"
+          onClick={() => photoInputRef.current?.click()}
           disabled={busy}
-          rows={1}
+          title="拍照"
+        >
+          <Camera size={21} />
+        </button>
+        <input
+          ref={photoInputRef}
+          className="cameraInput"
+          type="file"
+          accept="image/*"
+          capture="environment"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            event.target.value = "";
+            if (file) onPhotoSelect(file);
+          }}
         />
-        <button className="sendButton" type="submit" disabled={!draft.trim() || busy} title="发送">
+        <div className="composerInput">
+          {photo ? (
+            <div className="photoPreview">
+              <img src={photo.dataUrl} alt="待发送照片" />
+              <button type="button" onClick={onPhotoRemove} disabled={busy} title="移除照片">
+                <X size={16} />
+              </button>
+            </div>
+          ) : null}
+          <textarea
+            value={draft}
+            onChange={(event) => onDraftChange(event.target.value)}
+            placeholder={photo ? "问问 Soyo 看到了什么..." : "和 Soyo 说点什么..."}
+            disabled={busy}
+            rows={1}
+          />
+        </div>
+        <button className="sendButton" type="submit" disabled={(!draft.trim() && !photo) || busy} title="发送">
           <Send size={20} />
         </button>
       </form>
@@ -1175,7 +1251,8 @@ function createSession(): ChatSession {
     title: "新的会话",
     createdAt: now,
     updatedAt: now,
-    messages: []
+    messages: [],
+    memorySummary: ""
   };
 }
 
@@ -1208,7 +1285,9 @@ function readJson<T>(key: string): T | null {
 function hydrateSettings(current: AgentSettings, nextConfig: RuntimeConfig, force = false): AgentSettings {
   return {
     ...current,
-    llmModel: force || current.llmModel === initialSettings.llmModel ? nextConfig.llmModel : current.llmModel,
+    llmModel: force || ["qwen-plus-latest", initialSettings.llmModel].includes(current.llmModel)
+      ? nextConfig.llmModel
+      : current.llmModel,
     asrModel: force || current.asrModel === initialSettings.asrModel ? nextConfig.asrModel : current.asrModel,
     ttsModel: force || current.ttsModel === initialSettings.ttsModel ? nextConfig.ttsModel : current.ttsModel,
     live2dModelPath: force || current.live2dModelPath === initialSettings.live2dModelPath

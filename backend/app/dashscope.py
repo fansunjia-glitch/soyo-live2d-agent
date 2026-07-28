@@ -35,11 +35,17 @@ class AgentReply(TypedDict):
     ttsInstruction: str
 
 
+class ChatResult(AgentReply):
+    memorySummary: str
+    messagesCompacted: bool
+
+
 AGENT_SYSTEM_PROMPT = "\n".join(
     [
         "你是一个在网页 Live2D 中与用户实时语音聊天的虚拟角色。",
         "角色气质参考《BanG Dream! It's MyGO!!!!!》里的长崎素世：温柔、礼貌、细腻，偶尔带一点克制的犹豫和认真。",
         "不要声称自己是真实人物或官方角色；保持自然口语，回答简短，适合语音朗读。",
+        "用户提供图片时，结合画面中真实可见的内容自然回应；不确定的细节要明确说明，不要臆测。",
         "你必须只输出 JSON，不要 Markdown，不要解释。",
         "JSON 字段：reply, emotion, action, ttsInstruction。",
         "emotion 只能是 neutral, happy, sad, shy, worried, surprised, determined。",
@@ -47,6 +53,18 @@ AGENT_SYSTEM_PROMPT = "\n".join(
         "ttsInstruction 用中文描述朗读语气，100 字以内。",
     ]
 )
+
+MEMORY_SUMMARY_PROMPT = "\n".join(
+    [
+        "你负责压缩虚拟角色与用户的会话记忆。",
+        "请把已有记忆和本轮全部消息合并成一份可供后续对话使用的中文摘要。",
+        "保留用户身份与偏好、重要事实、双方约定、情绪关系变化、未完成事项，以及最新一条用户消息的明确意图。",
+        "不要编造信息，不要输出 JSON 或 Markdown，不要加入分析过程。",
+        "摘要控制在 800 个中文字符以内。",
+    ]
+)
+
+MEMORY_COMPACTION_THRESHOLD = 20
 
 FALLBACK_REPLY: AgentReply = {
     "reply": "嗯，我听到了。可以再慢一点告诉我吗？",
@@ -74,16 +92,112 @@ def create_dashscope_headers(*, content_type: str | None = "application/json") -
 async def chat_with_agent(
     messages: list[ChatMessage],
     *,
+    memory_summary: str | None = None,
+    image_data_url: str | None = None,
     model: str | None = None,
     temperature: float | None = None,
-) -> AgentReply:
+) -> ChatResult:
+    selected_model = model or config.llm_model
+    compacted = len(messages) > MEMORY_COMPACTION_THRESHOLD
+    next_memory_summary = memory_summary.strip() if memory_summary else ""
+    conversation_messages = messages
+
+    if compacted:
+        next_memory_summary = await summarize_conversation(
+            messages,
+            memory_summary=next_memory_summary,
+            model=selected_model,
+        )
+        latest_user_message = next(
+            (message for message in reversed(messages) if message["role"] == "user"),
+            None,
+        )
+        conversation_messages = [latest_user_message] if latest_user_message else []
+
+    conversation_messages = attach_image_to_latest_user_message(
+        conversation_messages,
+        image_data_url,
+    )
     payload = {
-        "model": model or config.llm_model,
+        "model": selected_model,
         "temperature": temperature if temperature is not None else 0.75,
+        "enable_thinking": False,
         "response_format": {"type": "json_object"},
-        "messages": [{"role": "system", "content": AGENT_SYSTEM_PROMPT}, *messages[-12:]],
+        "messages": [
+            {"role": "system", "content": build_agent_system_prompt(next_memory_summary)},
+            *conversation_messages,
+        ],
+    }
+    content = await request_chat_completion(payload)
+    reply = normalize_agent_reply(parse_json_object(content))
+    return {
+        **reply,
+        "memorySummary": next_memory_summary,
+        "messagesCompacted": compacted,
     }
 
+
+async def summarize_conversation(
+    messages: list[ChatMessage],
+    *,
+    memory_summary: str = "",
+    model: str | None = None,
+) -> str:
+    sections: list[str] = []
+    if memory_summary:
+        sections.append(f"已有长期记忆：\n{memory_summary}")
+    sections.append(
+        "本轮会话：\n"
+        + "\n".join(f"{message['role']}: {message['content']}" for message in messages)
+    )
+    payload = {
+        "model": model or config.llm_model,
+        "temperature": 0.2,
+        "enable_thinking": False,
+        "messages": [
+            {"role": "system", "content": MEMORY_SUMMARY_PROMPT},
+            {"role": "user", "content": "\n\n".join(sections)},
+        ],
+    }
+    summary = (await request_chat_completion(payload)).strip()
+    if not summary:
+        raise RuntimeError("DashScope returned an empty conversation summary.")
+    return summary
+
+
+def attach_image_to_latest_user_message(
+    messages: list[ChatMessage],
+    image_data_url: str | None,
+) -> list[dict[str, Any]]:
+    next_messages: list[dict[str, Any]] = [dict(message) for message in messages]
+    if not image_data_url:
+        return next_messages
+
+    for index in range(len(next_messages) - 1, -1, -1):
+        message = next_messages[index]
+        if message["role"] != "user":
+            continue
+        message["content"] = [
+            {"type": "image_url", "image_url": {"url": image_data_url}},
+            {"type": "text", "text": message["content"]},
+        ]
+        break
+    return next_messages
+
+
+def build_agent_system_prompt(memory_summary: str = "") -> str:
+    if not memory_summary:
+        return AGENT_SYSTEM_PROMPT
+    return "\n\n".join(
+        [
+            AGENT_SYSTEM_PROMPT,
+            "以下是此前会话的长期记忆摘要。将其作为背景信息延续对话，不要向用户复述摘要：",
+            memory_summary,
+        ]
+    )
+
+
+async def request_chat_completion(payload: dict[str, Any]) -> str:
     async with httpx.AsyncClient(timeout=60) as client:
         response = await client.post(
             DASHSCOPE_OPENAI_URL,
@@ -94,8 +208,7 @@ async def chat_with_agent(
     if response.status_code >= 400:
         raise RuntimeError(f"DashScope chat failed: {response.status_code} {response.text}")
 
-    content = response.json().get("choices", [{}])[0].get("message", {}).get("content", "")
-    return normalize_agent_reply(parse_json_object(content))
+    return response.json().get("choices", [{}])[0].get("message", {}).get("content", "")
 
 
 def parse_json_object(content: str) -> dict[str, Any]:

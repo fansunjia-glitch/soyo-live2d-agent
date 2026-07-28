@@ -13,6 +13,8 @@ export type AgentReply = {
   emotion: AgentEmotion;
   action: AgentAction;
   ttsInstruction: string;
+  memorySummary: string;
+  messagesCompacted: boolean;
 };
 
 export type RuntimeConfig = {

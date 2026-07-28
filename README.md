@@ -82,7 +82,9 @@ Vite 开发服务器会把 `/api` 和 `/ws` 代理到 FastAPI，所以本地前�
 2. FastAPI 后端
    - `GET /api/config`：返回模型、音色和 Live2D 配置。
    - `GET/POST/PUT/DELETE /api/sessions`：读写后端 JSON 会话历史。
-   - `POST /api/chat`：调用 DashScope OpenAI 兼容 Chat Completions。
+   - `POST /api/chat`：调用支持图文输入的 `qwen3.6-flash`，返回 Live2D 表情、动作和 TTS 指令。
+   - 手机端可通过输入栏的相机按钮拍照；照片在浏览器内压缩后随本轮请求发送，不写入会话历史。
+   - 会话消息超过 20 条时，额外调用一次 LLM 生成长期记忆摘要，将摘要追加到角色 system prompt，并清空已压缩的消息列表。
    - `POST /api/tts`：调用 CosyVoice WebSocket，返回 MP3。
    - `WS /ws/asr`：代理 Paraformer 实时 ASR WebSocket。
 
@@ -132,6 +134,8 @@ Vite 开发服务器会把 `/api` 和 `/ws` 代理到 FastAPI，所以本地前�
 
 手机访问时，使用同一局域网电脑 IP，例如 `http://192.168.x.x:5173`。移动浏览器通常要求 HTTPS 才允许麦克风权限，正式测试建议给前端和后端都配置 HTTPS。
 
+相机按钮使用移动端文件拍摄入口，可在 HTTP 页面由用户主动点击拍照。它只读取用户确认后的单张照片，不会持续访问摄像头；具体表现由手机浏览器决定，部分设备会同时提供相册选择。
+
 ## 分别部署
 
 ### 后端
@@ -147,7 +151,7 @@ python3 -m pip install -r backend/requirements.txt
 ```env
 DASHSCOPE_API_KEY=你的百炼 API Key
 DASHSCOPE_WORKSPACE_ID=
-LLM_MODEL=qwen-plus-latest
+LLM_MODEL=qwen3.6-flash
 ASR_MODEL=paraformer-realtime-v2
 TTS_MODEL=cosyvoice-v3.5-flash
 TTS_VOICE=longxiaochun

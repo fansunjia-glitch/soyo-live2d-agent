@@ -8,7 +8,7 @@ from typing import Literal
 
 from fastapi import FastAPI, HTTPException, Response, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from starlette.websockets import WebSocketDisconnect, WebSocketState
 
 from .config import PROJECT_ROOT, config
@@ -46,8 +46,24 @@ class ChatMessageModel(BaseModel):
 
 class ChatRequest(BaseModel):
     messages: list[ChatMessageModel]
+    memorySummary: str | None = None
+    imageDataUrl: str | None = Field(default=None, max_length=8_000_000)
     model: str | None = None
     temperature: float | None = Field(default=None, ge=0, le=2)
+
+    @field_validator("imageDataUrl")
+    @classmethod
+    def validate_image_data_url(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        allowed_prefixes = (
+            "data:image/jpeg;base64,",
+            "data:image/png;base64,",
+            "data:image/webp;base64,",
+        )
+        if not value.startswith(allowed_prefixes):
+            raise ValueError("imageDataUrl must be a base64 JPEG, PNG, or WebP data URL.")
+        return value
 
 
 class TtsRequest(BaseModel):
@@ -161,6 +177,8 @@ async def chat(request: ChatRequest) -> dict:
     try:
         return await chat_with_agent(
             [message.model_dump() for message in request.messages],
+            memory_summary=request.memorySummary,
+            image_data_url=request.imageDataUrl,
             model=request.model,
             temperature=request.temperature,
         )

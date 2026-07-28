@@ -52,7 +52,7 @@ def get_config() -> RuntimeConfig:
         port=int(os.getenv("PORT", "8787")),
         dashscope_api_key=env_value("DASHSCOPE_API_KEY"),
         dashscope_workspace_id=env_value("DASHSCOPE_WORKSPACE_ID"),
-        llm_model=env_value("LLM_MODEL") or "qwen-plus-latest",
+        llm_model=env_value("LLM_MODEL") or "qwen3.6-flash",
         asr_model=env_value("ASR_MODEL") or "paraformer-realtime-v2",
         tts_model=env_value("TTS_MODEL") or "cosyvoice-v3.5-flash",
         tts_voice=tts_voice,

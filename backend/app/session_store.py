@@ -24,11 +24,13 @@ class StoredSession(BaseModel):
     createdAt: int
     updatedAt: int
     messages: list[StoredMessage] = Field(default_factory=list)
+    memorySummary: str = ""
 
 
 class UpsertSessionRequest(BaseModel):
     title: str | None = None
     messages: list[StoredMessage] | None = None
+    memorySummary: str | None = None
 
 
 class SessionStore:
@@ -48,6 +50,7 @@ class SessionStore:
             createdAt=now,
             updatedAt=now,
             messages=[],
+            memorySummary="",
         )
         with self.lock:
             sessions = self._read()
@@ -65,6 +68,11 @@ class SessionStore:
                     update={
                         "title": request.title if request.title is not None else session.title,
                         "messages": request.messages if request.messages is not None else session.messages,
+                        "memorySummary": (
+                            request.memorySummary
+                            if request.memorySummary is not None
+                            else session.memorySummary
+                        ),
                         "updatedAt": int(time.time() * 1000),
                     }
                 )
