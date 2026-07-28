@@ -1,0 +1,50 @@
+{
+  "name": "soyo-live2d-agent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently -k \"npm:dev:backend\" \"npm:dev:frontend\"",
+    "dev:frontend": "vite --host 0.0.0.0",
+    "dev:web": "npm run dev:frontend",
+    "dev:backend": "python3 -m uvicorn backend.app.main:app --host 0.0.0.0 --port 8787 --reload",
+    "build": "tsc -b && vite build",
+    "start:backend": "python3 -m uvicorn backend.app.main:app --host 0.0.0.0 --port ${PORT:-8787}",
+    "start:frontend": "vite preview --host 0.0.0.0",
+    "voice:doctor": "node scripts/voice-doctor.mjs",
+    "voice:pipeline": "node scripts/voice-pipeline.mjs",
+    "voice:collect": "node scripts/collect-voice-samples.mjs",
+    "voice:prepare": "node scripts/prepare-voice-sample.mjs",
+    "voice:inspect": "node scripts/inspect-voice-sample.mjs",
+    "voice:clone": "node scripts/create-cosyvoice-voice.mjs",
+    "voice:clone:soyo": "node scripts/create-soyo-voices.mjs",
+    "voice:list": "node scripts/list-cosyvoice-voices.mjs",
+    "voice:test": "node scripts/test-cosyvoice-tts.mjs",
+    "check": "tsc -b",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "^5.0.0",
+    "concurrently": "^9.2.0",
+    "dotenv": "^17.2.1",
+    "lucide-react": "^0.468.0",
+    "pixi-live2d-display": "^0.4.0",
+    "pixi.js": "^6.5.10",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.17.0",
+    "@types/node": "^22.10.2",
+    "@types/react": "^19.0.2",
+    "@types/react-dom": "^19.0.2",
+    "@types/ws": "^8.5.13",
+    "eslint": "^9.17.0",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.5"
+  },
+  "overrides": {
+    "gh-pages": "^6.3.0"
+  }
+}

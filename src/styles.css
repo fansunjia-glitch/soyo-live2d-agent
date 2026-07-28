@@ -1,0 +1,829 @@
+:root {
+  --visual-height: 100dvh;
+  --keyboard-inset: 0px;
+  color: #172027;
+  background: #edf1f2;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  position: fixed;
+  inset: 0;
+  margin: 0;
+  min-width: 320px;
+  width: 100%;
+  height: var(--visual-height);
+  overflow: hidden;
+  -webkit-text-size-adjust: 100%;
+  overscroll-behavior: none;
+}
+
+html,
+#root {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+button {
+  border: 0;
+  cursor: pointer;
+}
+
+input,
+textarea {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #d7dee2;
+  border-radius: 8px;
+  color: #182027;
+  background: #ffffff;
+  outline: 0;
+}
+
+input:focus,
+textarea:focus {
+  border-color: #2b7a84;
+  box-shadow: 0 0 0 3px rgba(43, 122, 132, 0.14);
+}
+
+.soyoExperience {
+  position: relative;
+  width: 100vw;
+  height: var(--visual-height);
+  min-height: 0;
+  overflow: hidden;
+  background:
+    linear-gradient(160deg, rgba(230, 92, 105, 0.16), transparent 36%),
+    linear-gradient(330deg, rgba(43, 122, 132, 0.18), transparent 46%),
+    #f4f1ea;
+}
+
+.stageShell {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.live2dCanvas {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+}
+
+.stageGlow {
+  position: absolute;
+  left: 26%;
+  right: 22%;
+  bottom: 8%;
+  height: 22%;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, rgba(36, 91, 103, 0.18), transparent 66%);
+  filter: blur(10px);
+}
+
+.stageShell::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.5) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.46) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.74), transparent 76%);
+}
+
+.stageShell::after,
+.stageWash {
+  content: "";
+  position: absolute;
+  inset: auto 0 0;
+  z-index: 3;
+  height: 42%;
+  pointer-events: none;
+  background: linear-gradient(to top, rgba(22, 30, 36, 0.34), rgba(22, 30, 36, 0.08), transparent);
+}
+
+.experienceTopbar {
+  position: absolute;
+  top: 18px;
+  left: 18px;
+  right: 18px;
+  z-index: 8;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  pointer-events: none;
+}
+
+.statusPill,
+.statusLine {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid rgba(215, 222, 226, 0.86);
+  border-radius: 8px;
+  color: #35434a;
+  background: rgba(255, 255, 255, 0.84);
+  backdrop-filter: blur(14px);
+  font-size: 13px;
+}
+
+.statusPill strong {
+  max-width: min(360px, 58vw);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 800;
+}
+
+.statusPill span,
+.statusLine span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #8b9aa1;
+}
+
+.statusPill.live span,
+.statusLine.live span {
+  background: #d4515f;
+  box-shadow: 0 0 0 6px rgba(212, 81, 95, 0.14);
+}
+
+.statusPill.speaking span,
+.statusLine.speaking span {
+  background: #2b7a84;
+  box-shadow: 0 0 0 6px rgba(43, 122, 132, 0.14);
+}
+
+.statusPill.danger span,
+.statusLine.danger span {
+  background: #b72f38;
+}
+
+.settingsFab,
+.iconButton,
+.micButton,
+.sendButton {
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+}
+
+.settingsFab {
+  width: 44px;
+  height: 44px;
+  color: #172027;
+  background: rgba(255, 255, 255, 0.86);
+  border: 1px solid rgba(215, 222, 226, 0.88);
+  box-shadow: 0 12px 32px rgba(19, 31, 38, 0.12);
+  backdrop-filter: blur(14px);
+  pointer-events: auto;
+}
+
+.bottomChatDock {
+  position: absolute;
+  left: 50%;
+  bottom: max(14px, env(safe-area-inset-bottom));
+  z-index: 8;
+  display: grid;
+  grid-template-rows: minmax(0, auto) auto;
+  gap: 8px;
+  width: min(980px, calc(100vw - 32px));
+  max-height: min(34vh, 300px);
+  transform: translateX(-50%);
+  overflow: visible;
+  border-radius: 8px;
+  background: transparent;
+  filter: drop-shadow(0 18px 36px rgba(17, 29, 36, 0.18));
+}
+
+.chatEphemeral {
+  display: grid;
+  grid-template-rows: auto minmax(0, auto) auto;
+  max-height: 210px;
+  overflow: hidden;
+  opacity: 1;
+  transform: translateY(0);
+  transition: max-height 260ms ease, opacity 220ms ease, transform 260ms ease;
+}
+
+.bottomChatDock.compact .chatEphemeral {
+  display: none;
+  max-height: 0;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(12px);
+}
+
+.dockHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 34px;
+  padding: 0 12px;
+  color: rgba(34, 45, 52, 0.88);
+  font-size: 12px;
+}
+
+.dockHeader strong,
+.dockHeader span,
+.sessionItem strong,
+.sessionItem span,
+.kvList strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dockHeader strong {
+  font-size: 13px;
+}
+
+.dockHeader span {
+  color: #6d7b82;
+}
+
+.miniConversation {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 68px;
+  max-height: 128px;
+  overflow: auto;
+  padding: 8px 12px;
+}
+
+.miniEmpty {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 52px;
+  color: #64757d;
+  font-weight: 800;
+}
+
+.bubble {
+  max-width: min(76%, 760px);
+  padding: 9px 11px;
+  border-radius: 8px;
+  line-height: 1.46;
+  font-size: 14px;
+  word-break: break-word;
+}
+
+.bubble span {
+  display: block;
+  margin-bottom: 4px;
+  color: #6d7b82;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.bubble p {
+  margin: 0;
+}
+
+.bubble.user {
+  align-self: flex-end;
+  color: #ffffff;
+  background: rgba(43, 105, 116, 0.86);
+  backdrop-filter: blur(12px);
+}
+
+.bubble.user span {
+  color: rgba(255, 255, 255, 0.76);
+}
+
+.bubble.assistant {
+  align-self: flex-start;
+  color: #1e2a30;
+  background: rgba(237, 243, 244, 0.72);
+  backdrop-filter: blur(12px);
+}
+
+.transcript {
+  min-height: 30px;
+  padding: 7px 12px;
+  color: rgba(70, 84, 92, 0.82);
+  background: transparent;
+  font-size: 12px;
+  overflow: hidden;
+}
+
+.composer {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr) 46px;
+  gap: 9px;
+  padding: 0;
+  background: transparent;
+}
+
+.composer textarea {
+  font-size: 16px;
+  min-height: 46px;
+  max-height: 92px;
+  padding: 12px 13px;
+  border-color: rgba(215, 222, 226, 0.86);
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 14px 34px rgba(17, 29, 36, 0.14);
+  backdrop-filter: blur(14px);
+  resize: none;
+}
+
+.micButton,
+.sendButton {
+  width: 46px;
+  height: 46px;
+  color: #ffffff;
+  background: #1f4953;
+}
+
+.micButton.active {
+  background: #d4515f;
+}
+
+.sendButton {
+  background: #b84754;
+}
+
+.micButton:disabled,
+.sendButton:disabled,
+.secondaryButton:disabled {
+  cursor: default;
+  opacity: 0.48;
+}
+
+.consoleShell {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 88px;
+  background: #eef2f3;
+}
+
+.consoleMain {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-width: 0;
+  height: 100vh;
+  padding: 22px;
+  overflow: hidden;
+}
+
+.consoleHeader {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  min-height: 58px;
+  margin-bottom: 16px;
+}
+
+.eyebrow {
+  margin: 0 0 4px;
+  color: #b84754;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+h1 {
+  margin: 0;
+  color: #182027;
+  font-size: 24px;
+  line-height: 1.18;
+}
+
+.consoleTabs {
+  display: grid;
+  grid-auto-rows: 74px;
+  align-content: start;
+  gap: 8px;
+  padding: 16px 10px;
+  border-left: 1px solid #d9e0e3;
+  background: #172027;
+}
+
+.consoleTabs button {
+  display: grid;
+  place-items: center;
+  gap: 4px;
+  min-width: 0;
+  border-radius: 8px;
+  color: #b9c6cb;
+  background: transparent;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.consoleTabs button.active,
+.consoleTabs button:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.consoleTabs .closeTab {
+  color: #ffffff;
+  background: #b84754;
+}
+
+.historyConsole {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 14px;
+  min-height: 0;
+}
+
+.historyControls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+}
+
+.primaryAction,
+.ghostButton,
+.secondaryButton {
+  display: inline-grid;
+  grid-auto-flow: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 8px;
+  font-weight: 800;
+}
+
+.primaryAction {
+  min-width: 112px;
+  height: 40px;
+  padding: 0 12px;
+  color: #ffffff;
+  background: #d4515f;
+}
+
+.searchBox {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  align-items: center;
+  gap: 7px;
+  height: 40px;
+  padding: 0 10px;
+  border: 1px solid #dce3e6;
+  border-radius: 8px;
+  color: #687981;
+  background: #ffffff;
+}
+
+.searchBox input {
+  height: 100%;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.sessionList {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-height: 0;
+  overflow: auto;
+}
+
+.sessionItem {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 40px;
+  gap: 10px;
+  align-items: center;
+  min-height: 62px;
+  padding: 9px;
+  border: 1px solid #dce3e6;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.sessionItem.active {
+  border-color: rgba(43, 122, 132, 0.54);
+  box-shadow: 0 0 0 3px rgba(43, 122, 132, 0.1);
+}
+
+.sessionItem > button:first-child {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  color: #243138;
+  background: transparent;
+  text-align: left;
+}
+
+.sessionItem strong {
+  font-size: 14px;
+}
+
+.sessionItem span {
+  color: #718188;
+  font-size: 12px;
+}
+
+.iconButton {
+  width: 38px;
+  height: 38px;
+  color: #324148;
+  background: #ffffff;
+  border: 1px solid #dce3e6;
+}
+
+.dangerText {
+  color: #b72f38;
+}
+
+.managementGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(260px, 1fr));
+  align-content: start;
+  gap: 14px;
+  min-height: 0;
+  overflow: auto;
+}
+
+.settingsSection {
+  display: grid;
+  gap: 13px;
+  min-width: 0;
+  padding: 15px;
+  border: 1px solid #dce3e6;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.settingsSection header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #26353c;
+  font-weight: 800;
+}
+
+.settingsSection header span {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  color: #2b7a84;
+  background: #edf7f8;
+}
+
+.field {
+  display: grid;
+  gap: 7px;
+  color: #526169;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.field input {
+  height: 38px;
+  padding: 0 10px;
+  font-size: 13px;
+}
+
+.field input[type="range"] {
+  padding: 0;
+  accent-color: #2b7a84;
+}
+
+.fieldHint {
+  min-width: 0;
+  color: #6d7b82;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kvList {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  gap: 9px 10px;
+  min-width: 0;
+  align-items: center;
+  font-size: 12px;
+}
+
+.kvList span {
+  color: #718188;
+  font-weight: 700;
+}
+
+.kvList strong {
+  color: #243138;
+}
+
+.segmentedControl {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.segmentedControl button {
+  min-height: 32px;
+  padding: 0 10px;
+  border-radius: 8px;
+  color: #43525a;
+  background: #eef3f4;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.segmentedControl button.active {
+  color: #ffffff;
+  background: #2b7a84;
+}
+
+.secondaryButton {
+  width: fit-content;
+  min-width: 110px;
+  height: 36px;
+  padding: 0 11px;
+  color: #ffffff;
+  background: #2b6974;
+  font-size: 12px;
+}
+
+.fallbackAvatar {
+  position: absolute;
+  left: 50%;
+  bottom: 10%;
+  z-index: 3;
+  width: min(48vw, 390px);
+  aspect-ratio: 0.62;
+  transform: translateX(-50%);
+  filter: drop-shadow(0 34px 34px rgba(31, 42, 47, 0.24));
+}
+
+.fallbackAvatar .hair {
+  position: absolute;
+  inset: 3% 9% 42%;
+  border-radius: 46% 46% 38% 38%;
+  background: linear-gradient(150deg, #b89177, #64423d 62%, #35262d);
+}
+
+.fallbackAvatar .face {
+  position: absolute;
+  left: 21%;
+  right: 21%;
+  top: 21%;
+  height: 31%;
+  border-radius: 46% 46% 48% 48%;
+  background: #f4d4c4;
+}
+
+.fallbackAvatar .eye {
+  position: absolute;
+  top: 43%;
+  width: 11%;
+  height: 7%;
+  border-radius: 999px;
+  background: #46333a;
+}
+
+.fallbackAvatar .eye.left {
+  left: 24%;
+}
+
+.fallbackAvatar .eye.right {
+  right: 24%;
+}
+
+.fallbackAvatar .mouth {
+  position: absolute;
+  left: 45%;
+  bottom: 24%;
+  width: 10%;
+  height: 3%;
+  border-radius: 999px;
+  background: #9b5b62;
+  transition: height 160ms ease, bottom 160ms ease;
+}
+
+.fallbackAvatar.speaking .mouth {
+  bottom: 21%;
+  height: 9%;
+}
+
+.fallbackAvatar.happy .eye,
+.fallbackAvatar.shy .eye {
+  height: 4%;
+}
+
+.fallbackAvatar.surprised .mouth {
+  height: 10%;
+}
+
+.fallbackAvatar .ribbon {
+  position: absolute;
+  left: 38%;
+  right: 38%;
+  top: 53%;
+  height: 9%;
+  border-radius: 6px;
+  background: #2d7781;
+}
+
+.fallbackAvatar .shoulders {
+  position: absolute;
+  left: 7%;
+  right: 7%;
+  bottom: 0;
+  height: 41%;
+  border-radius: 42% 42% 8% 8%;
+  background: linear-gradient(145deg, #f7f3ee 0 28%, #263644 29% 100%);
+}
+
+@media (max-width: 780px) {
+  .soyoExperience {
+    height: var(--visual-height);
+    min-height: 0;
+  }
+
+  .experienceTopbar {
+    top: calc(max(12px, env(safe-area-inset-top)) + 2px);
+    left: 12px;
+    right: 12px;
+  }
+
+  .statusPill strong {
+    max-width: 58vw;
+  }
+
+  .bottomChatDock {
+    bottom: max(10px, env(safe-area-inset-bottom));
+    width: calc(100vw - 20px);
+    max-height: 38vh;
+  }
+
+  .soyoExperience.keyboardOpen .bottomChatDock {
+    bottom: max(8px, env(safe-area-inset-bottom));
+  }
+
+  .soyoExperience.keyboardOpen .chatEphemeral {
+    display: none;
+  }
+
+  .miniConversation {
+    max-height: 112px;
+  }
+
+  .bubble {
+    max-width: 92%;
+    font-size: 13px;
+  }
+
+  .consoleShell {
+    grid-template-columns: minmax(0, 1fr) 72px;
+  }
+
+  .consoleMain {
+    padding: 14px;
+  }
+
+  .consoleHeader {
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+
+  .consoleTabs {
+    grid-auto-rows: 68px;
+    padding: 10px 8px;
+  }
+
+  .historyControls,
+  .managementGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .primaryAction {
+    width: 100%;
+  }
+}
