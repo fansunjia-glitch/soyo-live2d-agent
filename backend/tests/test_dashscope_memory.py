@@ -2,12 +2,15 @@ from __future__ import annotations
 
 import json
 import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from unittest.mock import AsyncMock, patch
 
 from pydantic import ValidationError
 
 from backend.app.dashscope import AGENT_SYSTEM_PROMPT, chat_with_agent
 from backend.app.main import ChatRequest
+from backend.app.session_store import SessionStore, UpsertSessionRequest
 
 
 def message(index: int) -> dict:
@@ -102,6 +105,57 @@ class ChatRequestTests(unittest.TestCase):
     def test_rejects_non_image_data_url(self) -> None:
         with self.assertRaises(ValidationError):
             ChatRequest(messages=[], imageDataUrl="https://example.com/photo.jpg")
+
+
+class SessionMemoryHistoryTests(unittest.TestCase):
+    def test_only_keeps_ten_most_recent_summaries(self) -> None:
+        with TemporaryDirectory() as directory:
+            store = SessionStore(Path(directory) / "conversations.json")
+            session = store.create_session()
+            summaries = [
+                {"content": f"summary-{index}", "createdAt": index}
+                for index in range(12)
+            ]
+
+            updated = store.update_session(
+                session.id,
+                UpsertSessionRequest(
+                    memorySummary="summary-11",
+                    memorySummaries=summaries,
+                ),
+            )
+
+            self.assertIsNotNone(updated)
+            assert updated is not None
+            self.assertEqual(len(updated.memorySummaries), 10)
+            self.assertEqual(updated.memorySummaries[0].content, "summary-2")
+            self.assertEqual(updated.memorySummaries[-1].content, "summary-11")
+
+    def test_legacy_summary_is_exposed_as_a_history_entry(self) -> None:
+        with TemporaryDirectory() as directory:
+            store_path = Path(directory) / "conversations.json"
+            store_path.write_text(
+                json.dumps(
+                    [
+                        {
+                            "id": "legacy-session",
+                            "title": "旧会话",
+                            "createdAt": 100,
+                            "updatedAt": 200,
+                            "messages": [],
+                            "memorySummary": "旧的长期记忆",
+                        }
+                    ],
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+
+            restored = SessionStore(store_path).list_sessions()[0]
+
+            self.assertEqual(len(restored.memorySummaries), 1)
+            self.assertEqual(restored.memorySummaries[0].content, "旧的长期记忆")
+            self.assertEqual(restored.memorySummaries[0].createdAt, 200)
 
 
 if __name__ == "__main__":

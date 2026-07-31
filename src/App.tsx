@@ -2,8 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import {
   Box,
+  Brain,
   Camera,
   CheckCircle2,
+  Clock3,
   Headphones,
   History,
   Mic,
@@ -33,7 +35,7 @@ type AsrMessage =
   | { type: "asr-result"; text: string; final: boolean };
 
 type Phase = "idle" | "listening" | "thinking" | "speaking" | "error";
-type View = "history" | "models" | "voice" | "character";
+type View = "history" | "memory" | "models" | "voice" | "character";
 type VoiceMode = "auto" | "soft" | "natural" | "default" | "custom";
 
 type ChatSession = {
@@ -43,6 +45,12 @@ type ChatSession = {
   updatedAt: number;
   messages: ChatMessage[];
   memorySummary: string;
+  memorySummaries: MemorySummaryEntry[];
+};
+
+type MemorySummaryEntry = {
+  content: string;
+  createdAt: number;
 };
 
 type AgentSettings = {
@@ -223,7 +231,8 @@ export default function App() {
         body: JSON.stringify({
           title: session.title,
           messages: session.messages,
-          memorySummary: session.memorySummary
+          memorySummary: session.memorySummary,
+          memorySummaries: session.memorySummaries
         })
       });
       if (!response.ok) {
@@ -330,6 +339,7 @@ export default function App() {
     let pendingAssistantMessage: ChatMessage | null = null;
     let pendingAssistantMessages: ChatMessage[] | null = null;
     let pendingMemorySummary = session.memorySummary;
+    let pendingMemorySummaries = session.memorySummaries;
     let assistantCommitted = false;
 
     const commitAssistantMessage = () => {
@@ -343,7 +353,8 @@ export default function App() {
         ...current,
         updatedAt: Date.now(),
         messages: [...assistantMessages, assistantMessage],
-        memorySummary: pendingMemorySummary
+        memorySummary: pendingMemorySummary,
+        memorySummaries: pendingMemorySummaries
       }));
     };
 
@@ -371,6 +382,12 @@ export default function App() {
       pendingAssistantMessage = { role: "assistant", content: agentReply.reply };
       pendingAssistantMessages = agentReply.messagesCompacted ? [] : nextMessages;
       pendingMemorySummary = agentReply.memorySummary;
+      if (agentReply.messagesCompacted && agentReply.memorySummary) {
+        pendingMemorySummaries = [
+          ...session.memorySummaries,
+          { content: agentReply.memorySummary, createdAt: Date.now() }
+        ].slice(-10);
+      }
       setEmotion(agentReply.emotion);
       setAction(agentReply.action);
       setStatus("生成语音");
@@ -649,6 +666,7 @@ export default function App() {
           statusTone={statusTone}
           status={status}
           sessions={filteredSessions}
+          memorySession={activeSession}
           activeSessionId={activeSession?.id ?? ""}
           sessionQuery={sessionQuery}
           setSessionQuery={setSessionQuery}
@@ -805,6 +823,7 @@ function ConsoleOverlay({
   statusTone,
   status,
   sessions,
+  memorySession,
   activeSessionId,
   sessionQuery,
   setSessionQuery,
@@ -828,6 +847,7 @@ function ConsoleOverlay({
   statusTone: string;
   status: string;
   sessions: ChatSession[];
+  memorySession?: ChatSession;
   activeSessionId: string;
   sessionQuery: string;
   setSessionQuery: (value: string) => void;
@@ -872,6 +892,10 @@ function ConsoleOverlay({
           />
         ) : null}
 
+        {view === "memory" ? (
+          <MemoryView session={memorySession} />
+        ) : null}
+
         {view === "models" ? (
           <ModelsView config={config} settings={settings} setSettings={setSettings} onReset={saveServerDefaults} />
         ) : null}
@@ -908,6 +932,10 @@ function ConsoleOverlay({
           <History size={20} />
           <span>历史</span>
         </button>
+        <button className={view === "memory" ? "active" : ""} type="button" onClick={() => setView("memory")} title="记忆">
+          <Brain size={20} />
+          <span>记忆</span>
+        </button>
         <button className={view === "models" ? "active" : ""} type="button" onClick={() => setView("models")} title="模型">
           <SlidersHorizontal size={20} />
           <span>模型</span>
@@ -921,6 +949,39 @@ function ConsoleOverlay({
           <span>角色</span>
         </button>
       </nav>
+    </section>
+  );
+}
+
+function MemoryView({ session }: { session?: ChatSession }) {
+  const summaries = [...(session?.memorySummaries ?? [])].reverse();
+
+  return (
+    <section className="memoryConsole">
+      <header className="memoryOverview">
+        <strong>{session?.title ?? "当前会话"}</strong>
+        <span>{summaries.length}/10 次总结</span>
+      </header>
+
+      <section className="memoryList" aria-label="memory summaries">
+        {summaries.length === 0 ? (
+          <div className="memoryEmpty">
+            <Brain size={26} />
+            <strong>当前会话还没有记忆摘要。</strong>
+          </div>
+        ) : summaries.map((summary, index) => (
+          <article className="memoryItem" key={`${summary.createdAt}-${index}`}>
+            <header>
+              <strong>总结 #{summaries.length - index}</strong>
+              <time dateTime={new Date(summary.createdAt).toISOString()}>
+                <Clock3 size={14} />
+                <span>{formatMemoryTime(summary.createdAt)}</span>
+              </time>
+            </header>
+            <p>{summary.content}</p>
+          </article>
+        ))}
+      </section>
     </section>
   );
 }
@@ -1252,7 +1313,8 @@ function createSession(): ChatSession {
     createdAt: now,
     updatedAt: now,
     messages: [],
-    memorySummary: ""
+    memorySummary: "",
+    memorySummaries: []
   };
 }
 
@@ -1305,9 +1367,21 @@ function formatTime(value: number) {
   }).format(value);
 }
 
+function formatMemoryTime(value: number) {
+  return new Intl.DateTimeFormat("zh-CN", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit"
+  }).format(value);
+}
+
 function viewLabel(view: View) {
   return {
     history: "Console",
+    memory: "Long-term memory",
     models: "Model routing",
     voice: "Voice stack",
     character: "Character"
@@ -1316,6 +1390,7 @@ function viewLabel(view: View) {
 
 function viewTitle(view: View) {
   if (view === "history") return "历史会话";
+  if (view === "memory") return "长期记忆";
   if (view === "models") return "对话模型与识别配置";
   if (view === "voice") return "语音模型与音色配置";
   return "Live2D 角色配置";

@@ -7,15 +7,21 @@ from pathlib import Path
 from threading import Lock
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 Role = Literal["user", "assistant"]
+MAX_MEMORY_SUMMARIES = 10
 
 
 class StoredMessage(BaseModel):
     role: Role
     content: str
+
+
+class StoredMemorySummary(BaseModel):
+    content: str
+    createdAt: int
 
 
 class StoredSession(BaseModel):
@@ -25,12 +31,30 @@ class StoredSession(BaseModel):
     updatedAt: int
     messages: list[StoredMessage] = Field(default_factory=list)
     memorySummary: str = ""
+    memorySummaries: list[StoredMemorySummary] = Field(default_factory=list)
+
+    @field_validator("memorySummaries")
+    @classmethod
+    def keep_recent_memory_summaries(
+        cls,
+        value: list[StoredMemorySummary],
+    ) -> list[StoredMemorySummary]:
+        return value[-MAX_MEMORY_SUMMARIES:]
 
 
 class UpsertSessionRequest(BaseModel):
     title: str | None = None
     messages: list[StoredMessage] | None = None
     memorySummary: str | None = None
+    memorySummaries: list[StoredMemorySummary] | None = None
+
+    @field_validator("memorySummaries")
+    @classmethod
+    def keep_recent_memory_summaries(
+        cls,
+        value: list[StoredMemorySummary] | None,
+    ) -> list[StoredMemorySummary] | None:
+        return value[-MAX_MEMORY_SUMMARIES:] if value is not None else None
 
 
 class SessionStore:
@@ -51,6 +75,7 @@ class SessionStore:
             updatedAt=now,
             messages=[],
             memorySummary="",
+            memorySummaries=[],
         )
         with self.lock:
             sessions = self._read()
@@ -72,6 +97,11 @@ class SessionStore:
                             request.memorySummary
                             if request.memorySummary is not None
                             else session.memorySummary
+                        ),
+                        "memorySummaries": (
+                            request.memorySummaries
+                            if request.memorySummaries is not None
+                            else session.memorySummaries
                         ),
                         "updatedAt": int(time.time() * 1000),
                     }
@@ -102,7 +132,19 @@ class SessionStore:
         sessions: list[StoredSession] = []
         for item in raw:
             try:
-                sessions.append(StoredSession.model_validate(item))
+                session = StoredSession.model_validate(item)
+                if session.memorySummary and not session.memorySummaries:
+                    session = session.model_copy(
+                        update={
+                            "memorySummaries": [
+                                StoredMemorySummary(
+                                    content=session.memorySummary,
+                                    createdAt=session.updatedAt,
+                                )
+                            ]
+                        }
+                    )
+                sessions.append(session)
             except ValueError:
                 continue
         return sessions

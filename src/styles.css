@@ -479,6 +479,7 @@ h1 {
   padding: 16px 10px;
   border-left: 1px solid #d9e0e3;
   background: #172027;
+  overflow-y: auto;
 }
 
 .consoleTabs button {
@@ -509,6 +510,90 @@ h1 {
   grid-template-rows: auto minmax(0, 1fr);
   gap: 14px;
   min-height: 0;
+}
+
+.memoryConsole {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 14px;
+  min-height: 0;
+}
+
+.memoryOverview {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 40px;
+  padding: 0 2px 12px;
+  border-bottom: 1px solid #dce3e6;
+  color: #26353c;
+}
+
+.memoryOverview span {
+  color: #6d7b82;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.memoryList {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-height: 0;
+  overflow: auto;
+}
+
+.memoryItem {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid #dce3e6;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.memoryItem header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.memoryItem header > strong {
+  color: #2b6974;
+  font-size: 13px;
+}
+
+.memoryItem time {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #718188;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.memoryItem p {
+  margin: 0;
+  color: #26353c;
+  font-size: 14px;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.memoryEmpty {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 10px;
+  min-height: 220px;
+  color: #718188;
+}
+
+.memoryEmpty strong {
+  font-size: 14px;
 }
 
 .historyControls {
@@ -876,6 +961,12 @@ h1 {
   .historyControls,
   .managementGrid {
     grid-template-columns: 1fr;
+  }
+
+  .memoryItem header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 6px;
   }
 
   .primaryAction {

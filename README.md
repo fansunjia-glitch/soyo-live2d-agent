@@ -60,6 +60,40 @@ npm run dev:backend
 npm run dev:frontend
 ```
 
+### Linux 一键更新重启
+
+首次部署建议确认系统已安装端口清理工具：
+
+```bash
+sudo apt-get update && sudo apt-get install -y psmisc
+```
+
+服务器首次拉取包含该脚本的版本后，执行：
+
+```bash
+cd /root/soyo-live2d-agent
+./scripts/restart-server.sh
+```
+
+脚本会自动拉取 `origin/main`、按需安装依赖、关闭旧的前后端进程、清理 `5173` 与 `8787` 端口、后台启动服务并执行健康检查。运行日志和 PID 分别写入：
+
+```text
+backend/data/soyo.log
+backend/data/soyo-dev.pid
+```
+
+查看日志：
+
+```bash
+tail -f backend/data/soyo.log
+```
+
+如果部署分支不是 `main`，可通过环境变量指定：
+
+```bash
+SOYO_BRANCH=你的分支 ./scripts/restart-server.sh
+```
+
 Vite 开发服务器会把 `/api` 和 `/ws` 代理到 FastAPI，所以本地前端的 `VITE_API_BASE_URL` / `VITE_WS_BASE_URL` 可以留空。
 
 ## 公开仓库说明
@@ -85,6 +119,7 @@ Vite 开发服务器会把 `/api` 和 `/ws` 代理到 FastAPI，所以本地前�
    - `POST /api/chat`：调用支持图文输入的 `qwen3.6-flash`，返回 Live2D 表情、动作和 TTS 指令。
    - 手机端可通过输入栏的相机按钮拍照；照片在浏览器内压缩后随本轮请求发送，不写入会话历史。
    - 会话消息超过 20 条时，额外调用一次 LLM 生成长期记忆摘要，将摘要追加到角色 system prompt，并清空已压缩的消息列表。
+   - 控制台的“记忆”Tab 可查看当前会话最近 10 次摘要及写入时间，更早的摘要会自动移除。
    - `POST /api/tts`：调用 CosyVoice WebSocket，返回 MP3。
    - `WS /ws/asr`：代理 Paraformer 实时 ASR WebSocket。
 
