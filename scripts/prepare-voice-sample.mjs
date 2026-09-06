@@ -43,7 +43,6 @@ if (!ffmpeg && !afconvert && !canUseNativeWav) {
 
 await fs.mkdir(path.dirname(outputPath), { recursive: true });
 
-const tool = ffmpeg ? "ffmpeg" : "afconvert";
 if (ffmpeg) {
   const ffmpegArgs = [
     "-y",

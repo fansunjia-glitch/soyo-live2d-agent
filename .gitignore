@@ -15,5 +15,6 @@ public/models/soyo/bestdori/
 deploy/*.tar.gz
 deploy/*.sha256
 .DS_Store
+.idea/
 npm-debug.log*
 *.tsbuildinfo

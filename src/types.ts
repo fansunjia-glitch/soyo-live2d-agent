@@ -1,3 +1,6 @@
+import type { PerformancePlan } from "./performance/types";
+import type { AgentDeviceRequest } from "./device-control/types";
+
 export type Role = "user" | "assistant";
 
 export type ChatMessage = {
@@ -15,6 +18,9 @@ export type AgentReply = {
   ttsInstruction: string;
   memorySummary: string;
   messagesCompacted: boolean;
+  performance?: PerformancePlan;
+  deviceRequest?: AgentDeviceRequest;
+  memoryPatch?: unknown;
 };
 
 export type RuntimeConfig = {
@@ -49,4 +55,12 @@ export type RuntimeConfig = {
   };
   live2dModelPath: string;
   ready: boolean;
+  agentAuthRequired?: boolean;
+  agentAuthConfigured?: boolean;
+  deviceControlEnabled?: boolean;
+  allowedModels?: {
+    llm: string[];
+    asr: string[];
+    tts: string[];
+  };
 };

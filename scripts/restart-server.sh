@@ -146,9 +146,9 @@ clear_port "${FRONTEND_PORT}"
 export PATH="${PROJECT_DIR}/.venv/bin:${PATH}"
 log "Starting frontend and backend"
 if command -v setsid >/dev/null 2>&1; then
-  nohup setsid npm run dev > "${LOG_FILE}" 2>&1 < /dev/null &
+  nohup setsid npm run dev:lan > "${LOG_FILE}" 2>&1 < /dev/null &
 else
-  nohup npm run dev > "${LOG_FILE}" 2>&1 < /dev/null &
+  nohup npm run dev:lan > "${LOG_FILE}" 2>&1 < /dev/null &
 fi
 service_pid=$!
 printf '%s\n' "${service_pid}" > "${PID_FILE}"

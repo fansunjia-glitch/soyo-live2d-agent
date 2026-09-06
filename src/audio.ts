@@ -1,8 +1,13 @@
+import { calculateRms, normalizeRms, smoothAudioLevel } from "./audio/audioLevel";
+
 export type VoiceCapture = {
   stop: () => void;
 };
 
-export async function startVoiceCapture(onPcm: (chunk: ArrayBuffer) => void): Promise<VoiceCapture> {
+export async function startVoiceCapture(
+  onPcm: (chunk: ArrayBuffer) => void,
+  onLevel?: (level: number) => void
+): Promise<VoiceCapture> {
   const stream = await navigator.mediaDevices.getUserMedia({
     audio: {
       channelCount: 1,
@@ -11,29 +16,50 @@ export async function startVoiceCapture(onPcm: (chunk: ArrayBuffer) => void): Pr
       autoGainControl: true
     }
   });
+  let audioContext: AudioContext | null = null;
+  let source: MediaStreamAudioSourceNode | null = null;
+  let processor: ScriptProcessorNode | null = null;
+  let stopped = false;
 
-  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-  const audioContext = new AudioContextClass();
-  const source = audioContext.createMediaStreamSource(stream);
-  const processor = audioContext.createScriptProcessor(4096, 1, 1);
-
-  processor.onaudioprocess = (event) => {
-    const input = event.inputBuffer.getChannelData(0);
-    const pcm = downsampleTo16BitPcm(input, audioContext.sampleRate, 16000);
-    onPcm(pcm);
+  const cleanup = () => {
+    if (stopped) return;
+    stopped = true;
+    if (processor) processor.onaudioprocess = null;
+    try { processor?.disconnect(); } catch { /* already disconnected */ }
+    try { source?.disconnect(); } catch { /* already disconnected */ }
+    if (audioContext && audioContext.state !== "closed") void audioContext.close();
+    stream.getTracks().forEach((track) => track.stop());
+    onLevel?.(0);
   };
 
-  source.connect(processor);
-  processor.connect(audioContext.destination);
+  try {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) throw new Error("Web Audio is not supported by this browser.");
+    audioContext = new AudioContextClass();
+    if (audioContext.state === "suspended") await audioContext.resume();
+    source = audioContext.createMediaStreamSource(stream);
+    processor = audioContext.createScriptProcessor(4096, 1, 1);
+    let smoothedLevel = 0;
+    let lastFrameAt = performance.now();
 
-  return {
-    stop: () => {
-      processor.disconnect();
-      source.disconnect();
-      void audioContext.close();
-      stream.getTracks().forEach((track) => track.stop());
-    }
-  };
+    processor.onaudioprocess = (event) => {
+      const input = event.inputBuffer.getChannelData(0);
+      const now = performance.now();
+      const normalized = normalizeRms(calculateRms(input));
+      smoothedLevel = smoothAudioLevel(smoothedLevel, normalized, now - lastFrameAt);
+      lastFrameAt = now;
+      onLevel?.(smoothedLevel);
+      const pcm = downsampleTo16BitPcm(input, audioContext?.sampleRate ?? 16000, 16000);
+      onPcm(pcm);
+    };
+
+    source.connect(processor);
+    processor.connect(audioContext.destination);
+    return { stop: cleanup };
+  } catch (error) {
+    cleanup();
+    throw error;
+  }
 }
 
 function downsampleTo16BitPcm(input: Float32Array, inputRate: number, outputRate: number) {

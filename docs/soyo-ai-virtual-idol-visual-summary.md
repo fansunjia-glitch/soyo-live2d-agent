@@ -1,5 +1,7 @@
 # Soyo AI 虚拟偶像图解版
 
+> 历史基线图解（2026-09-04）：其中“当前/后续”描述的是重构前状态。最新实现已经接入 PerformancePlan v2、音频时钟口型、turn 打断、Live2D 能力探测和 iPhone Companion，请以项目根目录 `README.md` 与 `docs/live2d-performance-architecture.md` 为准。
+
 ## 一屏总览
 
 ```mermaid

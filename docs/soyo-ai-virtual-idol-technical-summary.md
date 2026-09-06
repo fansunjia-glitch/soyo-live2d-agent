@@ -1,5 +1,7 @@
 # Soyo AI 驱动虚拟偶像技术总结
 
+> 历史基线文档（2026-09-04）：本文保留改造前的实现说明，便于对比。当前架构、PerformancePlan v2、真实音频口型、可打断编排和 iPhone Companion 以项目根目录 `README.md` 与 `docs/live2d-performance-architecture.md` 为准。
+
 ## 1. 项目定位
 
 Soyo 是一个面向网页和移动端的实时语音 Live2D 对话原型。它把大语言模型、实时语音识别、语音合成和 Live2D 渲染串成一个完整闭环，让用户可以像和虚拟偶像通话一样进行交互：

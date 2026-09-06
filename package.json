@@ -5,12 +5,16 @@
   "type": "module",
   "scripts": {
     "dev": "concurrently -k \"npm:dev:backend\" \"npm:dev:frontend\"",
-    "dev:frontend": "vite --host 0.0.0.0",
+    "dev:frontend": "vite --host 127.0.0.1",
     "dev:web": "npm run dev:frontend",
-    "dev:backend": "python3 -m uvicorn backend.app.main:app --host 0.0.0.0 --port 8787 --reload",
+    "dev:backend": "python3 -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8787 --reload",
+    "dev:lan": "node scripts/require-agent-token.mjs && concurrently -k \"npm:dev:backend:lan\" \"npm:dev:frontend:lan\"",
+    "dev:frontend:lan": "vite --host 0.0.0.0",
+    "dev:backend:lan": "python3 -m uvicorn backend.app.main:app --host 0.0.0.0 --port 8787 --reload",
     "build": "tsc -b && vite build",
-    "start:backend": "python3 -m uvicorn backend.app.main:app --host 0.0.0.0 --port ${PORT:-8787}",
-    "start:frontend": "vite preview --host 0.0.0.0",
+    "start:backend": "node scripts/require-agent-token.mjs && python3 -m uvicorn backend.app.main:app --host 0.0.0.0 --port ${PORT:-8787}",
+    "start:frontend": "vite preview --host 127.0.0.1",
+    "start:frontend:lan": "node scripts/require-agent-token.mjs && vite preview --host 0.0.0.0",
     "voice:doctor": "node scripts/voice-doctor.mjs",
     "voice:pipeline": "node scripts/voice-pipeline.mjs",
     "voice:collect": "node scripts/collect-voice-samples.mjs",
@@ -20,6 +24,12 @@
     "voice:clone:soyo": "node scripts/create-soyo-voices.mjs",
     "voice:list": "node scripts/list-cosyvoice-voices.mjs",
     "voice:test": "node scripts/test-cosyvoice-tts.mjs",
+    "live2d:inspect": "node scripts/inspect-live2d-model.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:backend": "node scripts/run-backend-tests.mjs",
+    "test:ios:static": "bash ios/SoyoCompanion/scripts/validate-static.sh",
+    "verify": "npm run lint && npm run test && npm run check && npm run build && npm run test:backend",
     "check": "tsc -b",
     "lint": "eslint ."
   },
@@ -41,8 +51,12 @@
     "@types/react-dom": "^19.0.2",
     "@types/ws": "^8.5.13",
     "eslint": "^9.17.0",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "globals": "^16.0.0",
     "typescript": "^5.7.2",
-    "vite": "^6.0.5"
+    "typescript-eslint": "^8.20.0",
+    "vite": "^6.0.5",
+    "vitest": "^3.0.0"
   },
   "overrides": {
     "gh-pages": "^6.3.0"
