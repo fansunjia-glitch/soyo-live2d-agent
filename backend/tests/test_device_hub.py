@@ -323,6 +323,12 @@ class DeviceHubTests(unittest.IsolatedAsyncioTestCase):
             )
         assert isinstance(pairing.controller_socket, FakeSocket)
         self.assertFalse(any(message.get("type") == "command_accepted" for message in pairing.controller_socket.messages))
+        self.assertTrue(
+            any(
+                message.get("type") == "device_state" and message.get("connected") is False
+                for message in pairing.controller_socket.messages
+            )
+        )
 
     async def test_failed_send_does_not_detach_replacement_device(self) -> None:
         _, device = await self.pair()

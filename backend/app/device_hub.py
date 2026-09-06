@@ -478,6 +478,10 @@ class DeviceHub:
                 # send is suspended. Never detach that healthy replacement.
                 if not delivered and target_is_current:
                     pairing.device_socket = None
+                    await self._safe_send(
+                        pairing.controller_socket,
+                        {"type": "device_state", "connected": False, "device": pairing.device},
+                    )
                 if pairing.pending_commands.pop(command_id, None) is not None:
                     self._audit(pairing, "command_delivery_failed", commandId=command_id, action=action)
                 if not target_is_current:
